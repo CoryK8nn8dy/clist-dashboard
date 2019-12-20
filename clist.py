@@ -1,30 +1,61 @@
 from requests import get
-from json import loads
 from bs4 import BeautifulSoup
+from post import Post
 
-posts_file = open("posts.txt", "r")
-post_urls = posts_file.readlines()
+def read_posts(url_filename):
 
-for post_url in post_urls:
-    # remove new line
-    post_url = post_url.rstrip('\n')
-    response = get(post_url) # HTTP GET for c.l. post
-    # extract HTML from page
-    # start with post title
-    html_soup = BeautifulSoup(response.text, 'html.parser')
-    post_body = html_soup.body.article.section.find(
-            "div", {"class": "posting"}
-            ) # find body of c.l. post
-    post_title = post_body.h2.span.find("span", {"id": "titletextonly"}).text
-    print(post_title)
+    posts_file = open(url_filename, "r")
+    post_urls = posts_file.readlines()
+    posts = []
 
-    # get post price
-    print(post_body.h2.span.find("span", {"class": "price"}).text)
+    for post_url in post_urls:
+        # remove new line from URL
+        post_url = post_url.rstrip('\n')
+        response = get(post_url) # HTTP GET for c.l. post
 
-    # get post date
-    print(type(post_body.find(
-        "p", {"class": "postinginfo reveal"}
-        ).find(
-        "time", {"class": "date timeago"}.string
-        ))
-    )
+        # extract HTML from page
+        html_soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # get post title
+        post_title = html_soup.h2.span.find("span", {"id":"titletextonly"}).text
+        
+        # get post price
+        post_price = html_soup.h2.span.find("span", {"class": "price"}).text
+
+        # get post date and time
+        post_datetime = html_soup\
+            .find("p", {"class": "postinginfo reveal"})\
+            .find("time", {"class": "date timeago"})\
+            .text
+
+        # separate date and time
+        datetime_list = post_datetime.split(' ') # split string on spaces
+        datetime_list.remove('\n') # remove all lone newline chars
+        # remove all empty strings from the list  
+        while '' in datetime_list:
+            datetime_list.remove('')
+        # remove all newline characters that may succede the date or time
+        for i in range(len(datetime_list)):
+            datetime_list[i] = datetime_list[i].rstrip() 
+        # get date
+        post_date = datetime_list[0]
+        # get time
+        post_time = datetime_list[1]
+
+        # instantiate post object and append it to the list
+        posts.append(Post(post_title, post_price, post_date, post_time))
+
+    return posts
+
+def display_posts(posts_list):
+    print("-"*80)
+    for post in posts_list:
+        # display the post
+        post.display()
+        print("-"*80)
+        
+
+
+if __name__ == "__main__":
+   posts_objs = read_posts('posts.txt')
+   display_posts(posts_objs)
